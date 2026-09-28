@@ -29,6 +29,7 @@ from optim_utils.plotting import create_combined_plot
 from config import initParser, get_optimization_type, create_environment_dict, resolve_env_spec
 from cost_functions.walk_cost import func_Walk_FitCost
 from optim_utils.npoint_torque import calculate_npoint_torques
+from ctrl_optim.ctrl.param_layout import REFLEX_N, ParamLayout
 
 
 def main():
@@ -136,9 +137,17 @@ def main():
         files_txt = [i for i in files if i.endswith("_BestLast.txt")]
         loaded_params = np.loadtxt(os.path.join(input_args.param_path, files_txt[0]))
 
+        # Symmetric (uni) seed into a bilateral run: copy the one reflex block to both legs.
+        # The bilateral layout is [r_reflex | l_reflex | pose | tails], so prepend a copy.
+        is_bilat = getattr(input_args, "reflex_mode", None) in ("bilat", "amp")
+        reflex_n = REFLEX_N[control_mode]
+        if is_bilat and len(loaded_params) in (param_num - reflex_n, ParamLayout(control_mode).base):
+            loaded_params = np.concatenate([loaded_params[:reflex_n], loaded_params])
+            print(f"Upgraded symmetric seed to bilateral: copied {reflex_n} reflex params to both legs.")
+
         # Check if we need to add exo parameters
         if input_args.musc_model in ["22", "26"] and input_args.ExoOn:
-            base_params = 77 if control_mode == "2D" else 97
+            base_params = ParamLayout(control_mode, bilateral=is_bilat).base
 
             # Case 1: Loaded params are human-only, need to add fresh exo params
             if len(loaded_params) == base_params:
@@ -239,6 +248,12 @@ def main():
                 torque_values = calculate_npoint_torques(input_args.n_points)
                 params_0[-(input_args.n_points * 2) : -input_args.n_points] = torque_values  # Torque points
                 params_0[-(input_args.n_points) :] = 0.5  # Time points remain at 0.5
+
+    if len(params_0) != param_num:
+        raise ValueError(
+            f"Seed from --param_path has {len(params_0)} params, but this run expects {param_num} "
+            f"(reflex_mode={getattr(input_args, 'reflex_mode', None)}, control_mode={control_mode})"
+        )
 
     if input_args.optimize_stiffness and params_0 is not None:
         params_0[-2:] = 0.5  # start the pf/df prosthetic-ankle stiffness at mid-range, not the ceiling
