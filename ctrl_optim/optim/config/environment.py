@@ -60,6 +60,17 @@ def resolve_env_spec(args: argparse.Namespace) -> EnvSpec:
     return spec
 
 
+def parse_cost_weights(items) -> Dict[str, float]:
+    """Parse --cost_weights 'TERM=W' items into a dict; unknown terms are rejected by the cost."""
+    weights = {}
+    for item in items or []:
+        term, sep, value = item.partition("=")
+        if not sep:
+            raise ValueError(f"--cost_weights expects TERM=W items, got {item!r}")
+        weights[term.strip()] = float(value)
+    return weights
+
+
 def create_environment_dict(args: argparse.Namespace) -> Dict[str, Any]:
     """
     Create a dictionary of environment settings from command line arguments.
@@ -98,6 +109,9 @@ def create_environment_dict(args: argparse.Namespace) -> Dict[str, Any]:
         "reflex_mode": args.reflex_mode,
         "optimize_stiffness": args.optimize_stiffness,
         "ankle_range": args.ankle_range,
+        "ankle_range_side": args.ankle_range_side,
+        "optimize_impedance": args.optimize_impedance,
+        "cost_weights": parse_cost_weights(getattr(args, "cost_weights", None)),
     }
 
     return env_dict
@@ -121,8 +135,6 @@ def get_optimization_type(args: argparse.Namespace) -> str:
         return "Classic"
     elif args.kinematics:
         return "Kine"
-    elif args.combined:
-        return "Combined"
     elif args.velocity:
         return "Velocity"
     elif args.velocity_grf:
@@ -155,7 +167,6 @@ def get_optimization_suffix(optim_type: str) -> str:
         "Eff_Knee": "Eff_Kne",
         "Classic": "Class",
         "Kine": "Kine",
-        "Combined": "Comb",
         "Velocity": "Vel",
         "Vel_grf": "Vel_grf",
         "Kine_grf": "Kine_grf",

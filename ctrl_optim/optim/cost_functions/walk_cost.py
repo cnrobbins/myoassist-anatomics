@@ -42,8 +42,8 @@ def func_Walk_FitCost(
         trunk_err_type (str): Type of trunk error to calculate
         input_tgt_vel (float): Target velocity
         stride_num (int): Number of strides to evaluate
-        tgt_sym (float): Target symmetry threshold
-        tgt_grf (float): Target ground reaction force threshold
+        tgt_sym (float): Symmetry threshold (leg lengths)
+        tgt_grf (float): GRF threshold (body weights)
         env_dict (Dict[str, Any], optional): Environment configuration
         cost_print (bool): Whether to print detailed cost information
 
@@ -72,6 +72,8 @@ def func_Walk_FitCost(
             reflex_mode=env_dict.get("reflex_mode"),
             optimize_stiffness=env_dict.get("optimize_stiffness", False),
             ankle_range=env_dict.get("ankle_range"),
+            ankle_range_side=env_dict.get("ankle_range_side", "r"),
+            optimize_impedance=env_dict.get("optimize_impedance", False),
         )
     else:
         raise ValueError(f"Unsupported leg model: {env_dict['leg_model']}")
@@ -120,6 +122,7 @@ def func_Walk_FitCost(
         tgt_sym,
         tgt_grf,
         eval_mode=cost_print,
+        cost_weights=env_dict.get("cost_weights"),
     )
 
     return final_cost
